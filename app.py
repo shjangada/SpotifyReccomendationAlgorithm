@@ -5,6 +5,7 @@ import time
 import spotipy
 import csv
 import os
+import logistic_regression as LR
 
 app = Flask(__name__)
 app.secret_key = "app!!!!"
@@ -68,19 +69,14 @@ def getTracks():
     # Get top 100 tracks
     """
     items_1 = sp.current_user_top_tracks(limit=50, offset=0, time_range='medium_term')
-    top_track_uris_1 = [track['uri'] for track in items_1['items']]
-
-    items_2 = sp.current_user_top_tracks(limit=50, offset=50, time_range='medium_term')
-    top_track_uris_2 = [track['uri'] for track in items_2['items']]
-
-    top_track_uris = top_track_uris_1 + top_track_uris_2
+    top_track_uris = [track['uri'] for track in items_1['items']]
     
     populateCSV(top_track_uris, token_info, 'data/trackdata.csv')
 
     getArtists(token_info)
     """
 
-    neutral_songs = sp.current_user_top_tracks(limit=50, offset=100, time_range='medium_term')
+    neutral_songs = sp.current_user_top_tracks(limit=50, offset=75, time_range='medium_term')
     time.sleep(10)
     
     populateCSV(neutral_songs, token_info, 'data/neutral.csv')
@@ -88,8 +84,6 @@ def getTracks():
 
     create_song_database(token_info)
     
-    #return str(top_track_uris)
-
 
 def populateCSV(tracks, token_info, filename):
     sp = spotipy.Spotify(auth=token_info['access_token'])
@@ -127,9 +121,20 @@ def getArtists(token_info):
         for genre in genres_set:
             writer.writerow([genre])
 
+def load_top_songs(file_path):
+    top_songs = set()
+    with open(file_path, mode='r') as file:
+        reader = csv.reader(file)
+        for row in reader:
+            if row:  # Ensure row is not empty
+                top_songs.add(row[0])
+    return top_songs
 
 def create_song_database(token_info):
     sp = spotipy.Spotify(auth=token_info['access_token'])
+    
+    # Load top songs from trackdata.csv into a set
+    top_songs = load_top_songs('data/trackdata.csv')
     
     with open('data/artists.csv', mode='r') as file:
         reader = csv.reader(file)
@@ -142,20 +147,40 @@ def create_song_database(token_info):
     for artist in artist_names:
         result = sp.search(q=f'artist:"{artist}"', type='track', limit=50)
         time.sleep(10)
-        for tracks in result['tracks']['items']: 
-            if 'id' in tracks and (tracks['popularity'] < 80):
-                # Add the track ID to the list
-                populateCSV(tracks['id'], token_info, 'data/songdatabase.csv')
+        for track in result['tracks']['items']: 
+            if 'id' in track and track['popularity'] < 80 and track['id'] not in top_songs:
+                # Add the track ID to the CSV
+                populateCSV([track['id']], token_info, 'data/songdatabase.csv')
 
     genre_tracks = []
     for genre in genres:
         result = sp.search(q=f'genre:"{genre}"', type='track', limit=50)
         time.sleep(10)
-        for tracks in result['tracks']['items']:
-            if 'id' in tracks and (tracks['popularity'] < 80):
-                genre_tracks.append(tracks['id'])
+        for track in result['tracks']['items']:
+            if 'id' in track and track['popularity'] < 80 and track['id'] not in top_songs:
+                genre_tracks.append(track['id'])
     
     populateCSV(genre_tracks, token_info, 'data/songdatabase.csv')
+    RecommendSongs()
+
+
+def RecommendSongs():
+    if len(LR.run_logistic_regression) < 50:
+        try:
+            # Get Spotify token
+            token_info = app.get_token()
+            sp = spotipy.Spotify(auth=token_info['access_token'])
+            
+            # Get track details and print them
+            track_details = sp.tracks(LR.run_logistic_regression['id'])
+            for track in track_details['tracks']:
+                song_name = track['name']
+                artist_name = track['artists'][0]['name']
+                print(f"{song_name} by {artist_name}")
+        except:
+            print("User not logged in")
+    else:
+        print("Too many recommendations")
 
 
 
