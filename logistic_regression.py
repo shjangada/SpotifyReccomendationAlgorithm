@@ -47,7 +47,7 @@ def run_logistic_regression():
     song_data = pd.read_csv('data/songdatabase.csv')
     data_for_analysis = song_data[columns_to_include]
     song_data['predicted_likelihood'] = model.predict_proba(data_for_analysis)[:, 1]
-    threshold = 0.825
+    threshold = 0.755
     song_data['predicted_preference'] = np.where(song_data['predicted_likelihood'] >= threshold, 'like', 'dislike')
     liked_songs = song_data[song_data['predicted_preference'] == 'like']
 

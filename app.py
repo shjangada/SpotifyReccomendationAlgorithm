@@ -58,6 +58,7 @@ def redirectPage():
 
 @app.route('/getTracks')
 def getTracks():
+    """
     try:
         token_info = get_token()
     except:
@@ -66,23 +67,23 @@ def getTracks():
     
     sp = spotipy.Spotify(auth=token_info['access_token'])
     
-    # Get top 100 tracks
-    """
     items_1 = sp.current_user_top_tracks(limit=50, offset=0, time_range='medium_term')
     top_track_uris = [track['uri'] for track in items_1['items']]
     
     populateCSV(top_track_uris, token_info, 'data/trackdata.csv')
 
     getArtists(token_info)
-    """
 
-    neutral_songs = sp.current_user_top_tracks(limit=50, offset=75, time_range='medium_term')
+    neutral_songs = sp.current_user_top_tracks(limit=50, offset=50, time_range='medium_term')
+    neutral_uris = [track['uri'] for track in neutral_songs['items']]
     time.sleep(10)
     
-    populateCSV(neutral_songs, token_info, 'data/neutral.csv')
+    populateCSV(neutral_uris, token_info, 'data/neutral.csv')
     time.sleep(10)
 
     create_song_database(token_info)
+    """
+    return RecommendSongs()
     
 
 def populateCSV(tracks, token_info, filename):
@@ -165,26 +166,34 @@ def create_song_database(token_info):
 
 
 def RecommendSongs():
-    if len(LR.run_logistic_regression) < 50:
-        try:
+    try:
+        # Get recommended tracks (should be a list of track IDs)
+        recommended_tracks = LR.run_logistic_regression().tolist()  # Convert to list if necessary
+        
+        if len(recommended_tracks) < 50:
             # Get Spotify token
-            token_info = app.get_token()
+            token_info = get_token()
             sp = spotipy.Spotify(auth=token_info['access_token'])
             
             # Get track details and print them
-            track_details = sp.tracks(LR.run_logistic_regression['id'])
+            track_details = sp.tracks(recommended_tracks)  # Assuming recommended_tracks is a list of track IDs
+            artist_names = []
+            
             for track in track_details['tracks']:
                 song_name = track['name']
                 artist_name = track['artists'][0]['name']
-                print(f"{song_name} by {artist_name}")
-        except:
-            print("User not logged in")
-    else:
-        print("Too many recommendations")
+                artist_names.append(f"{song_name} by {artist_name}")
+            
+            return artist_names
+        else:
+            print("Too many recommendations")
+            return []
+    except Exception as e:
+        print(f"Error: {e}")
+        return []
 
+if __name__ == "__main__":
+    recommendations = RecommendSongs()
+    for recommendation in recommendations:
+        print(recommendation)
 
-
-if __name__ == '__main__':
-    if not os.path.exists('data'):
-        os.makedirs('data')
-    app.run(debug=True)
