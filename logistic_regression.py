@@ -52,9 +52,7 @@ def run_logistic_regression():
     liked_songs = song_data[song_data['predicted_preference'] == 'like']
 
     # Randomly select 5 liked songs
-    random_liked_songs = liked_songs.sample(n=5)
-    print(random_liked_songs[['id', 'predicted_preference']])
-    return random_liked_songs['id']
+    return liked_songs['id']
 
 if __name__ == "__main__":
     random_liked_song_ids = run_logistic_regression()

@@ -32,7 +32,7 @@ def create_spotify_oauth():
         client_id=os.getenv("CLIENT_ID"),
         client_secret=os.getenv("CLIENT_SECRET"),
         redirect_uri=url_for('redirectPage', _external=True),
-        scope='user-top-read,user-follow-read')
+        scope='user-top-read,user-follow-read,playlist-modify-private')
 
 @app.route('/')
 def login():
@@ -58,7 +58,6 @@ def redirectPage():
 
 @app.route('/getTracks')
 def getTracks():
-    """
     try:
         token_info = get_token()
     except:
@@ -82,7 +81,6 @@ def getTracks():
     time.sleep(10)
 
     create_song_database(token_info)
-    """
     return RecommendSongs()
     
 
@@ -169,20 +167,37 @@ def RecommendSongs():
     try:
         # Get recommended tracks (should be a list of track IDs)
         recommended_tracks = LR.run_logistic_regression().tolist()  # Convert to list if necessary
-        
+
         if len(recommended_tracks) < 50:
             # Get Spotify token
             token_info = get_token()
             sp = spotipy.Spotify(auth=token_info['access_token'])
             
-            # Get track details and print them
+            # Create a new playlist
+            user_id = sp.me()['id']  # Get the current user's ID
+            playlist_name = "Recommendations"
+            playlist_description = "A playlist of recommended songs."
+            new_playlist = sp.user_playlist_create(user=user_id, name=playlist_name, public=False, description=playlist_description)
+            time.sleep(10)
+            playlist_id = new_playlist['id']
+
+            # Get track details and filter duplicates
             track_details = sp.tracks(recommended_tracks)  # Assuming recommended_tracks is a list of track IDs
-            artist_names = []
+            time.sleep(10)
+            unique_tracks = []
+            seen_track_names = set()
             
             for track in track_details['tracks']:
                 song_name = track['name']
-                artist_name = track['artists'][0]['name']
-                artist_names.append(f"{song_name} by {artist_name}")
+                if song_name not in seen_track_names:
+                    seen_track_names.add(song_name)
+                    unique_tracks.append(track['id'])
+            
+            # Add unique tracks to the playlist
+            sp.playlist_add_items(playlist_id, unique_tracks)
+
+            # Print track details
+            artist_names = [f"{track['name']} by {track['artists'][0]['name']}" for track in track_details['tracks'] if track['name'] in seen_track_names]
             
             return artist_names
         else:
