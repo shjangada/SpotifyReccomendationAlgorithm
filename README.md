@@ -1,4 +1,4 @@
-# Project Name: Spotify Recommendation Algorithm
+# Spotify Recommendation Algorithm
 
 ## Overview
 This project aims to develop a recommendation algorithm for Spotify users based on their listening history and preferences. The algorithm utilizes audio features of songs to evaluate and recommend tracks that align with the user's tastes.
